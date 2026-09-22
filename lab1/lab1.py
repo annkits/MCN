@@ -1,26 +1,31 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+harmonics = [
+    (7, 16, np.pi / 13),
+    (7, 4 * 16, np.pi / 13)
+]
 
-A = 7
-freq =  16
-omega = 2 * np.pi * freq
-phi = np.pi / 13
-T = 1 / freq
 duration = 1.0
 n_bits = 3
 
-def calc_freq_max():
-    return freq
+def calc_freq_max(harmonics):
+    return max(h[1] for h in harmonics)
 
 def kotelnikov_theorem(freq_max):
-    f_s = freq_max * 8 + 1
+    f_s = freq_max * 2 + 10
     return f_s
 
-def adc(f_s, duration, A, omega, phi):
+def generate_signal(t, harmonics):
+    y = np.zeros_like(t, dtype=float)
+    for A, f, phi in harmonics:
+        y += A * np.cos(2 * np.pi * f * t + phi)
+    return y
+
+def adc(f_s, duration, harmonics):
     N = int(np.ceil(f_s * duration))
     t_samples = np.arange(N) / f_s
-    y_samples = A * np.cos(omega * t_samples + phi)
+    y_samples = generate_signal(t_samples, harmonics)
     return t_samples, y_samples
 
 def dft(y_samples):
@@ -87,9 +92,9 @@ def aver_error(y_samples, y_quant, delta):
     return avg_error, rms
 
 
-def show_plot(A, omega, phi, f_s, t_samples, y_samples, y_restored, freqs, amp, amp_quant):
+def show_plot(f_s, t_samples, y_samples, y_restored, freqs, amp, amp_quant, harmonics):
     t_cont = np.linspace(0, duration, 2000)
-    y_cont = A * np.cos(omega * t_cont + phi)
+    y_cont = generate_signal(t_cont, harmonics)
 
     half = len(y_samples) // 2
 
@@ -133,12 +138,12 @@ def show_plot(A, omega, phi, f_s, t_samples, y_samples, y_restored, freqs, amp, 
     plt.show()
 
 def main():
-    freq_max = calc_freq_max()
+    freq_max = calc_freq_max(harmonics)
     f_s = kotelnikov_theorem(freq_max)
     print(f"Максимальная частота сигнала: {freq_max} Гц")
     print(f"Частота дискретизации: {f_s} Гц")
 
-    t_samples, y_samples = adc(f_s, duration, A, omega, phi)
+    t_samples, y_samples = adc(f_s, duration, harmonics)
     print(f"Количество отсчётов: {len(y_samples)}")
 
     Y = dft(y_samples)
@@ -161,7 +166,8 @@ def main():
         avg_error, rms = aver_error(y_samples, y_quant, delta)
         print(f"Разрядность АЦП: {n}, средняя ошибка: {rms:.2f}")
 
-    show_plot(A, omega, phi, f_s, t_samples, y_samples, y_restored, freqs, amp, amp_quant)
+    show_plot(f_s, t_samples, y_samples, y_restored, freqs, amp, amp_quant, harmonics)
+
 
 if __name__ == '__main__':
     main()
